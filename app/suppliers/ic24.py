@@ -21,18 +21,29 @@ class Ic24Supplier(BaseSupplier):
         search_page_url = self.search_url.format(code=encoded_code)
         
         try:
-            async with AsyncSession(impersonate="chrome120") as client:
+            # Увеличил таймаут до 30 секунд (было по умолчанию меньше)
+            async with AsyncSession(impersonate="chrome120", timeout=30) as client:
+                print(f"[{self.name}] Отправляю запрос...", flush=True)
+                
                 response = await client.get(search_page_url)
+                
+                print(f"[{self.name}] Ответ получен! Статус: {response.status_code}", flush=True)
+                
                 if response.status_code != 200:
+                    print(f"[{self.name}] ОШИБКА ДОСТУПА. Статус: {response.status_code}", flush=True)
                     return []
 
                 soup = BeautifulSoup(response.text, "html.parser")
+                
+                # Проверка: а не подсунули ли нам страницу с капчей?
+                page_title = soup.title.text.strip() if soup.title else "Без заголовка"
+                print(f"[{self.name}] Заголовок страницы: {page_title}", flush=True)
 
                 cards = soup.select(".row.m-b-0") 
                 if not cards:
                     cards = soup.select(".product-list-item")
                 
-                print(f"[{self.name}] Найдено: {len(cards)}", flush=True)
+                print(f"[{self.name}] Распознано карточек: {len(cards)}", flush=True)
 
                 previous_anchor_id = None 
 
@@ -46,7 +57,7 @@ class Ic24Supplier(BaseSupplier):
                         brand_tag = card.select_one(".manufacture") or card.select_one(".producer-name")
                         brand = brand_tag.text.strip() if brand_tag else "Unknown"
 
-                        # 2. АРТИКУЛ И ОПИСАНИЕ (ХИРУРГИЯ V2)
+                        # 2. АРТИКУЛ
                         desc_tag = card.select_one(".description")
                         sku = part_number 
                         if desc_tag:
@@ -75,23 +86,24 @@ class Ic24Supplier(BaseSupplier):
                                     product_image = src
                                 else:
                                     product_image = self.base_host + src
+                                
+                                # Fix HTTP -> HTTPS
+                                if product_image:
+                                    product_image = product_image.replace("http://", "https://")
+                            
                             current_element_id = img_tag.get("id")
 
-                        # --- 4. НАЛИЧИЕ (С ПРЕФИКСОМ >) ---
+                        # 4. НАЛИЧИЕ
                         count = 0
                         delivery_days = 1 
-                        stock_prefix = "" # По умолчанию пусто
+                        stock_prefix = ""
 
                         stock_span = card.select_one('[datatest-id="tap-item-product-stock"]')
-                        
                         if stock_span:
                             try:
                                 count = int(stock_span.text.strip())
                                 if count > 0:
                                     delivery_days = 0
-                                
-                                # Проверка на знак ">" в родительском блоке
-                                # Текст родителя будет примерно: "> 9 gab."
                                 parent = stock_span.parent
                                 if parent and ">" in parent.text:
                                     stock_prefix = "> " 
@@ -120,13 +132,13 @@ class Ic24Supplier(BaseSupplier):
                             currency="EUR",
                             delivery_days=delivery_days,
                             count=count,
-                            count_prefix=stock_prefix, # <--- Записываем префикс
+                            count_prefix=stock_prefix,
                             link=final_link 
                         ))
                     except Exception as e:
                         continue
         
         except Exception as e:
-            print(f"[{self.name}] Ошибка: {e}", flush=True)
+            print(f"[{self.name}] ГЛОБАЛЬНАЯ ОШИБКА ПРИ ЗАПРОСЕ: {e}", flush=True)
 
         return results
