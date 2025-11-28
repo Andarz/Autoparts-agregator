@@ -1,14 +1,89 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="main-container text-center">
-    <h2 class="mb-4">🚙 Поиск запчастей</h2>
-    <form action="/search" method="post">
-        <div class="input-group input-group-lg mb-3">
-            <input type="text" name="part_code" class="form-control" placeholder="Введите номер детали..." required>
-            <button class="btn btn-primary" type="submit">Найти</button>
-        </div>
-        <small class="text-muted">Поиск выполняется по всем подключенным поставщикам одновременно.</small>
-    </form>
+<div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 80vh;">
+
+    <div class="main-container text-center w-100 p-5 shadow-lg" style="max-width: 700px; background: white; border-radius: 20px;">
+        
+        <div class="mb-4 display-1">🚙</div>
+        <h2 class="mb-4 fw-bold text-secondary">Поиск автозапчастей</h2>
+        
+        <!-- Добавили onsubmit="saveSearchTerm()" -->
+        <form action="/search" method="post" onsubmit="saveSearchTerm()">
+            <div class="input-group input-group-lg mb-4 shadow-sm">
+                <!-- 
+                     1. Добавили id="searchInput" чтобы JS мог найти это поле 
+                     2. Добавили list="historyOptions" для связи с выпадающим списком
+                     3. autocomplete="off" чтобы отключить стандартные подсказки браузера (они мешают нашему списку)
+                -->
+                <input type="text" 
+                       id="searchInput"
+                       name="part_code" 
+                       class="form-control border-secondary-subtle" 
+                       placeholder="Номер детали (напр. W712/95)..." 
+                       list="historyOptions" 
+                       autocomplete="off"
+                       required autofocus>
+                
+                <!-- Сам список подсказок (изначально пустой, заполняется скриптом) -->
+                <datalist id="historyOptions"></datalist>
+
+                <button class="btn btn-primary px-5 fw-bold" type="submit">НАЙТИ</button>
+            </div>
+            
+            <div class="text-muted small">
+                ⚡ Поиск по складам: <span class="badge bg-light text-dark border">InterCars</span> <span class="badge bg-light text-dark border">Местные</span>
+            </div>
+        </form>
+
+    </div>
+
 </div>
+
+<!-- МАГИЯ JAVASCRIPT -->
+<script>
+    // Имя ключа в памяти браузера
+    const STORAGE_KEY = 'autoparts_search_history';
+
+    // 1. Функция загрузки истории при открытии страницы
+    document.addEventListener("DOMContentLoaded", function() {
+        const input = document.getElementById('searchInput');
+        const dataList = document.getElementById('historyOptions');
+        
+        // Достаем сохраненную строку и превращаем в массив (или берем пустой, если ничего нет)
+        let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+        // Создаем пункты выпадающего списка
+        history.forEach(term => {
+            let option = document.createElement('option');
+            option.value = term;
+            dataList.appendChild(option);
+        });
+    });
+
+    // 2. Функция сохранения нового запроса (срабатывает при нажатии НАЙТИ)
+    function saveSearchTerm() {
+        const input = document.getElementById('searchInput');
+        const term = input.value.trim(); // Убираем лишние пробелы
+
+        if (!term) return;
+
+        // Достаем текущую историю
+        let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+        // Удаляем этот запрос, если он уже был в списке (чтобы не было дублей и он поднялся наверх)
+        history = history.filter(item => item !== term);
+
+        // Добавляем новый запрос в НАЧАЛО списка (unshift)
+        history.unshift(term);
+
+        // Отрезаем лишнее, оставляем только 10 штук
+        if (history.length > 10) {
+            history = history.slice(0, 10);
+        }
+
+        // Сохраняем обратно в память
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }
+</script>
 {% endblock %}
