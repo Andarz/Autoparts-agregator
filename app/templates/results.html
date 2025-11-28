@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mt-4">
+    <a href="/" class="btn btn-outline-secondary mb-3">← Назад</a>
+    <h4>Результаты для: {{ search_code }}</h4>
+    
+    {% if parts %}
+    <div class="table-responsive bg-white p-3 rounded shadow-sm">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Поставщик</th>
+                    <th>Бренд / Артикул</th>
+                    <th>Цена</th>
+                    <th>Срок</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for part in parts %}
+                <tr>
+                    <td><span class="badge bg-secondary">{{ part.supplier_name }}</span></td>
+                    <td>
+                        <strong>{{ part.brand }}</strong><br>
+                        <small class="text-muted">{{ part.part_number }}</small>
+                    </td>
+                    <td class="fs-5 fw-bold text-success">{{ part.price }} ₽</td>
+                    <td>
+                        {% if part.delivery_days == 0 %}
+                            <span class="text-success fw-bold">В наличии</span>
+                        {% else %}
+                            {{ part.delivery_days }} дн.
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary">Заказать</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="alert alert-warning">Ничего не найдено.</div>
+    {% endif %}
+</div>
+{% endblock %}
