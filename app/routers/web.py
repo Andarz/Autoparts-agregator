@@ -11,9 +11,9 @@ templates = Jinja2Templates(directory="app/templates")
 # Список подключенных поставщиков
 # Сюда будем добавлять реальных парсеров позже
 ACTIVE_SUPPLIERS = [
-    MockSupplier(name="Exist (Demo)", delay=0.5),
-    MockSupplier(name="Autodoc (Demo)", delay=1.0),
-    MockSupplier(name="Local Shop", delay=0.2),
+    # MockSupplier(name="Exist (Demo)", delay=0.5),
+    # MockSupplier(name="Autodoc (Demo)", delay=1.0),
+    # MockSupplier(name="Local Shop", delay=0.2),
     MyShop(),
     Ic24Supplier(),
 ]
