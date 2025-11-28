@@ -10,3 +10,7 @@ class PartSchema(BaseModel):
     delivery_days: int
     count: Optional[int] = None
     link: Optional[str] = None
+    brand_img: Optional[str] = None
+    image: Optional[str] = None
+    count_prefix: str = ""
+

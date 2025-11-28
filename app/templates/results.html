@@ -4,37 +4,68 @@
 <div class="mt-4">
     <a href="/" class="btn btn-outline-secondary mb-3">← Назад</a>
     <h4>Результаты для: {{ search_code }}</h4>
-    
+
     {% if parts %}
     <div class="table-responsive bg-white p-3 rounded shadow-sm">
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
+                    <th style="width: 80px;">Фото</th>
                     <th>Поставщик</th>
                     <th>Бренд / Артикул</th>
                     <th>Цена</th>
-                    <th>Срок</th>
+                    <th>Наличие</th> <!-- Переименовали колонку -->
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for part in parts %}
                 <tr>
-                    <td><span class="badge bg-secondary">{{ part.supplier_name }}</span></td>
-                    <td>
-                        <strong>{{ part.brand }}</strong><br>
-                        <small class="text-muted">{{ part.part_number }}</small>
-                    </td>
-                    <td class="fs-5 fw-bold text-success">{{ part.price }} ₽</td>
-                    <td>
-                        {% if part.delivery_days == 0 %}
-                            <span class="text-success fw-bold">В наличии</span>
+                    <!-- ФОТО -->
+                    <td class="text-center">
+                        {% if part.image %}
+                        <img src="{{ part.image }}" referrerpolicy="no-referrer"
+                            onclick="showImagePreview('{{ part.image }}')" class="rounded border shadow-sm"
+                            style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;" alt="Фото">
                         {% else %}
-                            {{ part.delivery_days }} дн.
+                        <div class="rounded border d-flex align-items-center justify-content-center text-muted"
+                            style="width: 60px; height: 60px; background: #eee;">
+                            📷
+                        </div>
                         {% endif %}
                     </td>
+
+                    <td><span class="badge bg-secondary">{{ part.supplier_name }}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-primary">Заказать</button>
+                        {% if part.brand_img %}
+                        <img src="{{ part.brand_img }}" alt="{{ part.brand }}" style="max-height: 25px;">
+                        {% else %}
+                        <strong class="text-uppercase">{{ part.brand }}</strong>
+                        {% endif %}
+                        <br>
+                        <span class="text-muted fw-bold">{{ part.part_number }}</span>
+                    </td>
+                    <td class="fs-5 fw-bold text-success text-nowrap">{{ part.price }} €</td>
+
+                    <!-- НАЛИЧИЕ И СРОКИ -->
+                    <!-- НАЛИЧИЕ И СРОКИ -->
+                    <td>
+                        {% if part.delivery_days == 0 %}
+                        <!-- В НАЛИЧИИ -->
+                        <span class="badge bg-success fs-6">
+                            <!-- Добавили part.count_prefix перед цифрой -->
+                            В наличии: {{ part.count_prefix }}{{ part.count }} шт.
+                        </span>
+                        {% else %}
+                        <!-- ПОД ЗАКАЗ -->
+                        <span class="text-muted small">
+                            Под заказ ({{ part.delivery_days }} дн.)
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <a href="{{ part.link }}" target="_blank" class="btn btn-sm btn-outline-primary">На сайт</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -42,7 +73,36 @@
         </table>
     </div>
     {% else %}
-        <div class="alert alert-warning">Ничего не найдено.</div>
+    <div class="alert alert-warning">Ничего не найдено.</div>
     {% endif %}
 </div>
+
+<!-- МОДАЛЬНОЕ ОКНО (СКРЫТО ПО УМОЛЧАНИЮ) -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- modal-lg делает окно большим -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Просмотр фото</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center bg-light">
+                <!-- Сюда скрипт подставит большую картинку -->
+                <img id="modalImage" src="" class="img-fluid rounded" style="max-height: 80vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- СКРИПТ ДЛЯ ОТКРЫТИЯ ОКНА -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function showImagePreview(imageUrl) {
+        // 1. Находим картинку внутри модального окна и меняем ей src
+        document.getElementById('modalImage').src = imageUrl;
+
+        // 2. Открываем окно с помощью Bootstrap
+        var myModal = new bootstrap.Modal(document.getElementById('imageModal'));
+        myModal.show();
+    }
+</script>
 {% endblock %}
