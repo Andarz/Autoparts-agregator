@@ -8,14 +8,8 @@
         <div class="mb-4 display-1">🚙</div>
         <h2 class="mb-4 fw-bold text-secondary">Поиск автозапчастей</h2>
         
-        <!-- Добавили onsubmit="saveSearchTerm()" -->
         <form action="/search" method="post" onsubmit="saveSearchTerm()">
             <div class="input-group input-group-lg mb-4 shadow-sm">
-                <!-- 
-                     1. Добавили id="searchInput" чтобы JS мог найти это поле 
-                     2. Добавили list="historyOptions" для связи с выпадающим списком
-                     3. autocomplete="off" чтобы отключить стандартные подсказки браузера (они мешают нашему списку)
-                -->
                 <input type="text" 
                        id="searchInput"
                        name="part_code" 
@@ -25,10 +19,16 @@
                        autocomplete="off"
                        required autofocus>
                 
-                <!-- Сам список подсказок (изначально пустой, заполняется скриптом) -->
                 <datalist id="historyOptions"></datalist>
 
-                <button class="btn btn-primary px-5 fw-bold" type="submit">НАЙТИ</button>
+                <!-- Основная кнопка -->
+                <button class="btn btn-primary px-4 fw-bold" type="submit">НАЙТИ</button>
+                
+                <!-- НОВАЯ КНОПКА GOOGLE -->
+                <!-- type="button" важно, чтобы она не отправляла основную форму -->
+                <button class="btn btn-outline-danger px-3 fw-bold" type="button" onclick="openGoogleSearch()" title="Искать в Google (Латвия)">
+                    G
+                </button>
             </div>
             
             <div class="text-muted small">
@@ -40,20 +40,44 @@
 
 </div>
 
-<!-- МАГИЯ JAVASCRIPT -->
+<!-- МОДАЛЬНОЕ ОКНО ДЛЯ GOOGLE -->
+<div class="modal fade" id="googleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+            <span class="text-danger fw-bold">G</span> Поиск по Латвии
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light" style="min-height: 300px;">
+        
+        <!-- Спиннер загрузки -->
+        <div id="googleLoader" class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Опрашиваем Google...</p>
+        </div>
+
+        <!-- Сюда упадут результаты -->
+        <div id="googleResults" class="list-group"></div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-    // Имя ключа в памяти браузера
+    // ИСТОРИЯ ПОИСКА
     const STORAGE_KEY = 'autoparts_search_history';
 
-    // 1. Функция загрузки истории при открытии страницы
     document.addEventListener("DOMContentLoaded", function() {
         const input = document.getElementById('searchInput');
         const dataList = document.getElementById('historyOptions');
-        
-        // Достаем сохраненную строку и превращаем в массив (или берем пустой, если ничего нет)
         let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-
-        // Создаем пункты выпадающего списка
         history.forEach(term => {
             let option = document.createElement('option');
             option.value = term;
@@ -61,29 +85,70 @@
         });
     });
 
-    // 2. Функция сохранения нового запроса (срабатывает при нажатии НАЙТИ)
     function saveSearchTerm() {
         const input = document.getElementById('searchInput');
-        const term = input.value.trim(); // Убираем лишние пробелы
-
+        const term = input.value.trim();
         if (!term) return;
-
-        // Достаем текущую историю
         let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-
-        // Удаляем этот запрос, если он уже был в списке (чтобы не было дублей и он поднялся наверх)
         history = history.filter(item => item !== term);
-
-        // Добавляем новый запрос в НАЧАЛО списка (unshift)
         history.unshift(term);
+        if (history.length > 10) history = history.slice(0, 10);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    }
 
-        // Отрезаем лишнее, оставляем только 10 штук
-        if (history.length > 10) {
-            history = history.slice(0, 10);
+    // --- НОВАЯ ЛОГИКА GOOGLE ---
+    function openGoogleSearch() {
+        const input = document.getElementById('searchInput');
+        const query = input.value.trim();
+        
+        if (!query) {
+            alert("Введите номер детали!");
+            input.focus();
+            return;
         }
 
-        // Сохраняем обратно в память
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        // 1. Открываем модалку
+        var myModal = new bootstrap.Modal(document.getElementById('googleModal'));
+        myModal.show();
+
+        // 2. Показываем лоадер, чистим старое
+        document.getElementById('googleLoader').style.display = 'block';
+        document.getElementById('googleResults').innerHTML = '';
+
+        // 3. Отправляем запрос на наш сервер
+        fetch(`/google-search-api?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('googleResults');
+                document.getElementById('googleLoader').style.display = 'none';
+
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="alert alert-warning">Ничего не найдено в Google.</div>';
+                    return;
+                }
+
+                // 4. Рисуем список
+                data.results.forEach(item => {
+                    const link = document.createElement('a');
+                    link.href = item.link;
+                    link.target = "_blank"; // Открывать в новой вкладке
+                    link.className = "list-group-item list-group-item-action p-3 mb-2 rounded border shadow-sm";
+                    
+                    link.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 text-primary fw-bold text-decoration-underline">${item.title}</h6>
+                        </div>
+                        <p class="mb-1 small text-muted">${item.desc}</p>
+                        <small class="text-success">${new URL(item.link).hostname}</small>
+                    `;
+                    resultsDiv.appendChild(link);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('googleLoader').style.display = 'none';
+                document.getElementById('googleResults').innerHTML = '<div class="alert alert-danger">Ошибка поиска.</div>';
+            });
     }
 </script>
 {% endblock %}

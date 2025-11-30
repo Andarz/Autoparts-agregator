@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter, Request, Form, Response 
+from fastapi import APIRouter, Request, Form, Response
 from fastapi.templating import Jinja2Templates
 from curl_cffi.requests import AsyncSession
 
@@ -17,28 +17,30 @@ ACTIVE_SUPPLIERS = [
     Ic24Supplier(),
 ]
 
+
 @router.get("/")
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+
 @router.post("/search")
 async def search(request: Request, part_code: str = Form(...)):
     clean_code = part_code.strip().upper()
-    
+
     tasks = [s.search(clean_code) for s in ACTIVE_SUPPLIERS]
     results_list = await asyncio.gather(*tasks)
-    
+
     flat_results = []
     for res in results_list:
         flat_results.extend(res)
-        
+
     flat_results.sort(key=lambda x: x.price)
 
-    return templates.TemplateResponse("results.html", {
-        "request": request, 
-        "parts": flat_results,
-        "search_code": clean_code
-    })
+    return templates.TemplateResponse(
+        "results.html",
+        {"request": request, "parts": flat_results, "search_code": clean_code},
+    )
+
 
 # --- ИСПРАВЛЕННЫЙ ПРОКСИ (FIXED URL) ---
 @router.get("/proxy-image")
@@ -53,21 +55,83 @@ async def proxy_image(url: str):
 
     headers = {
         "Referer": "https://www.ic24.lv/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
 
     try:
-        async with AsyncSession(impersonate="chrome120", headers=headers, verify=False) as client:
+        async with AsyncSession(
+            impersonate="chrome120", headers=headers, verify=False
+        ) as client:
             resp = await client.get(url)
-            
+
             if resp.status_code == 200:
                 content_type = resp.headers.get("content-type", "image/jpeg")
                 return Response(content=resp.content, media_type=content_type)
             else:
                 # Теперь мы увидим реальную ошибку в терминале, если она останется
-                print(f"[Proxy Error] URL: {url} | Status: {resp.status_code}", flush=True)
+                print(
+                    f"[Proxy Error] URL: {url} | Status: {resp.status_code}", flush=True
+                )
                 return Response(status_code=resp.status_code)
-                
+
     except Exception as e:
         print(f"[Proxy Exception] {e}", flush=True)
         return Response(status_code=500)
+
+    # --- НОВАЯ ФУНКЦИЯ: ПОИСК В GOOGLE ---
+
+
+@router.get("/google-search-api")
+async def google_search_api(query: str):
+    """
+    Ищет в Google.lv и возвращает JSON с результатами.
+    """
+    if not query:
+        return {"results": []}
+
+    # Формируем ссылку для Google Латвия (gl=lv) на русском/латышском
+    google_url = f"https://www.google.lv/search?q={query}&gl=lv&hl=lv"
+
+    results = []
+
+    try:
+        # Используем curl_cffi, чтобы Google не дал капчу
+        async with AsyncSession(impersonate="chrome120") as client:
+            resp = await client.get(google_url)
+
+            if resp.status_code == 200:
+                from bs4 import BeautifulSoup
+
+                soup = BeautifulSoup(resp.text, "html.parser")
+
+                # Google хранит результаты в блоках div с классом "g"
+                search_blocks = soup.select("div.g")
+
+                for block in search_blocks:
+                    try:
+                        # Ищем заголовок (h3)
+                        title_tag = block.select_one("h3")
+                        # Ищем ссылку (a)
+                        link_tag = block.select_one("a")
+                        # Ищем описание (обычно div с текстом)
+                        desc_tag = block.select_one(
+                            "div[style*='-webkit-line-clamp']"
+                        ) or block.select_one("div[data-sncf]")
+
+                        if title_tag and link_tag:
+                            title = title_tag.text
+                            link = link_tag.get("href")
+                            desc = desc_tag.text if desc_tag else ""
+
+                            # Фильтруем мусор (иногда попадаются ссылки на сам гугл)
+                            if link.startswith("http"):
+                                results.append(
+                                    {"title": title, "link": link, "desc": desc}
+                                )
+                    except:
+                        continue
+
+    except Exception as e:
+        print(f"Ошибка Google поиска: {e}")
+
+    return {"results": results}
