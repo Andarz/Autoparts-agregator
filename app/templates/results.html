@@ -2,91 +2,103 @@
 
 {% block content %}
 <div class="mt-4">
-    <a href="/" class="btn btn-outline-secondary mb-3">← Назад</a>
-    <h4>Результаты для: {{ search_code }}</h4>
+    <a href="/" class="btn btn-outline-secondary mb-3">← Назад к поиску</a>
     
     {% if parts %}
-    <div class="table-responsive bg-white p-3 rounded shadow-sm">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th style="width: 80px;">Фото</th>
-                    <th>Поставщик</th>
-                    <th>Бренд / Артикул</th>
-                    <th>Цена</th>
-                    <th>Наличие</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for part in parts %}
-                <tr>
-                    <!-- ФОТО ЧЕРЕЗ ПРОКСИ -->
-                    <td class="text-center">
-                        {% if part.image %}
-                            <!-- 
-                                src="/proxy-image?url=..." - это обращение к нашему Python-серверу
-                                onerror - если даже прокси не смог скачать, покажем кликабельную заглушку
-                            -->
-                            <img src="/proxy-image?url={{ part.image }}" 
-                                 onclick="showImagePreview(this.src)"
-                                 class="rounded border shadow-sm" 
-                                 style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
-                                 alt="Фото"
-                                 onerror="this.style.display='none'; document.getElementById('fallback-{{ loop.index }}').style.display='flex';"
-                            >
-                            
-                            <!-- Запасной блок (появляется при ошибке), тоже кликабельный -->
-                            <div id="fallback-{{ loop.index }}"
-                                 onclick="showImagePreview('/proxy-image?url={{ part.image }}')"
-                                 class="rounded border align-items-center justify-content-center text-muted shadow-sm bg-light" 
-                                 style="width: 60px; height: 60px; cursor: pointer; display: none;">
-                                <small style="font-size: 10px;">Фото</small>
-                            </div>
-                        {% else %}
-                            <!-- Если ссылки вообще нет -->
-                            <div class="rounded border d-flex align-items-center justify-content-center text-muted" style="width: 60px; height: 60px; background: #eee;">
-                                📷
-                            </div>
-                        {% endif %}
-                    </td>
+        <!-- ЕСЛИ ЕСТЬ РЕЗУЛЬТАТЫ -->
+        <h4>Результаты для: {{ search_code }}</h4>
+        <div class="table-responsive bg-white p-3 rounded shadow-sm">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 80px;">Фото</th>
+                        <th>Поставщик</th>
+                        <th>Бренд / Артикул</th>
+                        <th>Цена</th>
+                        <th>Наличие</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for part in parts %}
+                    <tr>
+                        <!-- ФОТО -->
+                        <td class="text-center">
+                            {% if part.image %}
+                                <img src="/proxy-image?url={{ part.image }}" 
+                                     onclick="showImagePreview(this.src)"
+                                     class="rounded border shadow-sm" 
+                                     style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                                     alt="Фото"
+                                     onerror="this.style.display='none'; document.getElementById('fallback-{{ loop.index }}').style.display='flex';"
+                                >
+                                <div id="fallback-{{ loop.index }}"
+                                     onclick="showImagePreview('/proxy-image?url={{ part.image }}')"
+                                     class="rounded border align-items-center justify-content-center text-muted shadow-sm bg-light" 
+                                     style="width: 60px; height: 60px; cursor: pointer; display: none;">
+                                    <small style="font-size: 10px;">Фото</small>
+                                </div>
+                            {% else %}
+                                <div class="rounded border d-flex align-items-center justify-content-center text-muted" style="width: 60px; height: 60px; background: #eee;">
+                                    📷
+                                </div>
+                            {% endif %}
+                        </td>
 
-                    <td><span class="badge bg-secondary">{{ part.supplier_name }}</span></td>
-                    <td>
-                        {% if part.brand_img %}
-                            <img src="{{ part.brand_img }}" alt="{{ part.brand }}" style="max-height: 25px;">
-                        {% else %}
-                            <strong class="text-uppercase">{{ part.brand }}</strong>
-                        {% endif %}
-                        <br>
-                        <span class="text-muted fw-bold">{{ part.part_number }}</span>
-                    </td>
-                    <td class="fs-5 fw-bold text-success text-nowrap">{{ part.price }} €</td>
-                    <td>
-                        {% if part.delivery_days == 0 %}
-                            <span class="badge bg-success fs-6">
-                                В наличии: {{ part.count_prefix }}{{ part.count }} шт.
-                            </span>
-                        {% else %}
-                            <span class="text-muted small">
-                                Под заказ ({{ part.delivery_days }} дн.)
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{{ part.link }}" target="_blank" class="btn btn-sm btn-outline-primary">На сайт</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                        <td><span class="badge bg-secondary">{{ part.supplier_name }}</span></td>
+                        <td>
+                            {% if part.brand_img %}
+                                <img src="{{ part.brand_img }}" alt="{{ part.brand }}" style="max-height: 25px;">
+                            {% else %}
+                                <strong class="text-uppercase">{{ part.brand }}</strong>
+                            {% endif %}
+                            <br>
+                            <span class="text-muted fw-bold">{{ part.part_number }}</span>
+                        </td>
+                        <td class="fs-5 fw-bold text-success text-nowrap">{{ part.price }} €</td>
+                        <td>
+                            {% if part.delivery_days == 0 %}
+                                <span class="badge bg-success fs-6">
+                                    В наличии: {{ part.count_prefix }}{{ part.count }} шт.
+                                </span>
+                            {% else %}
+                                <span class="text-muted small">
+                                    Под заказ ({{ part.delivery_days }} дн.)
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ part.link }}" target="_blank" class="btn btn-sm btn-outline-primary">На сайт</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
     {% else %}
-        <div class="alert alert-warning">Ничего не найдено.</div>
+        <!-- ЕСЛИ НИЧЕГО НЕ НАЙДЕНО (ПУСТОЙ СПИСОК) -->
+        <div class="text-center p-5 bg-white rounded shadow-sm mt-3">
+            <div class="display-1 mb-3">🤷‍♂️</div>
+            <h3 class="text-danger fw-bold">Ничего не найдено у поставщиков</h3>
+            <p class="text-muted mb-4">
+                Похоже, детали <strong>{{ search_code }}</strong> нет в InterCars.
+            </p>
+            
+            <div class="card bg-light border-danger mx-auto" style="max-width: 500px;">
+                <div class="card-body">
+                    <h5 class="card-title fw-bold">Попробуйте Глобальный поиск</h5>
+                    <p class="card-text small text-muted">Мы поищем этот номер по всей Латвии (ss.lv, kurpirkt и др.)</p>
+                    <button onclick="runGlobalSearch('{{ search_code }}')" class="btn btn-danger btn-lg w-100 fw-bold">
+                        🔍 Искать "{{ search_code }}" в интернете
+                    </button>
+                </div>
+            </div>
+        </div>
     {% endif %}
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО -->
+<!-- МОДАЛЬНОЕ ОКНО ДЛЯ КАРТИНОК -->
 <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
@@ -101,12 +113,85 @@
   </div>
 </div>
 
+<!-- МОДАЛЬНОЕ ОКНО ДЛЯ GOOGLE (ГЛОБАЛЬНЫЙ ПОИСК) -->
+<div class="modal fade" id="googleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+            <span class="text-danger fw-bold">G</span> Поиск по Латвии: <span id="modalSearchQuery"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light" style="min-height: 300px;">
+        <div id="googleLoader" class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Опрашиваем интернет...</p>
+        </div>
+        <div id="googleResults" class="list-group"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // 1. Открытие картинки
     function showImagePreview(imageUrl) {
         document.getElementById('modalImage').src = imageUrl;
         var myModal = new bootstrap.Modal(document.getElementById('imageModal'));
         myModal.show();
+    }
+
+    // 2. Запуск Глобального поиска (вызывается кнопкой)
+    function runGlobalSearch(query) {
+        // Открываем модалку
+        var myModal = new bootstrap.Modal(document.getElementById('googleModal'));
+        document.getElementById('modalSearchQuery').innerText = query;
+        myModal.show();
+
+        // Показываем лоадер
+        const resultsDiv = document.getElementById('googleResults');
+        document.getElementById('googleLoader').style.display = 'block';
+        resultsDiv.innerHTML = '';
+
+        // Шлем запрос на наш сервер (DuckDuckGo)
+        fetch(`/google-search-api?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('googleLoader').style.display = 'none';
+
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="alert alert-warning">Ничего не найдено.</div>';
+                    return;
+                }
+
+                data.results.forEach(item => {
+                    const link = document.createElement('a');
+                    link.href = item.link;
+                    link.target = "_blank";
+                    link.className = "list-group-item list-group-item-action p-3 mb-2 rounded border shadow-sm";
+                    
+                    let domain = "";
+                    try { domain = new URL(item.link).hostname; } catch(e){}
+
+                    link.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 text-primary fw-bold text-decoration-underline">${item.title}</h6>
+                        </div>
+                        <p class="mb-1 small text-muted">${item.desc}</p>
+                        <small class="text-success">${domain}</small>
+                    `;
+                    resultsDiv.appendChild(link);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('googleLoader').style.display = 'none';
+                resultsDiv.innerHTML = '<div class="alert alert-danger">Ошибка поиска.</div>';
+            });
     }
 </script>
 {% endblock %}

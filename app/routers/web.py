@@ -13,7 +13,7 @@ templates = Jinja2Templates(directory="app/templates")
 ACTIVE_SUPPLIERS = [
     # MockSupplier(name="Exist (Demo)", delay=0.5),
     # MockSupplier(name="Autodoc (Demo)", delay=1.0),
-    MyShop(),
+    # MyShop(),
     Ic24Supplier(),
 ]
 
@@ -81,57 +81,66 @@ async def proxy_image(url: str):
     # --- НОВАЯ ФУНКЦИЯ: ПОИСК В GOOGLE ---
 
 
+# --- ИСПРАВЛЕННЫЙ ПОИСК (через DuckDuckGo) ---
 @router.get("/google-search-api")
 async def google_search_api(query: str):
     """
-    Ищет в Google.lv и возвращает JSON с результатами.
+    Ищет в интернете (DuckDuckGo HTML) с фильтром по Латвии.
+    Это работает намного стабильнее, чем прямой парсинг Google.
     """
     if not query:
         return {"results": []}
 
-    # Формируем ссылку для Google Латвия (gl=lv) на русском/латышском
-    google_url = f"https://www.google.lv/search?q={query}&gl=lv&hl=lv"
+    # kl=lv-lv -> Регион Латвия
+    # q=query -> Запрос
+    ddg_url = f"https://html.duckduckgo.com/html/"
 
     results = []
 
+    # Формируем данные формы (так работает DuckDuckGo HTML)
+    data = {
+        "q": query,
+        "kl": "lv-lv",  # Регион: Латвия
+    }
+
     try:
-        # Используем curl_cffi, чтобы Google не дал капчу
+        # Используем curl_cffi
         async with AsyncSession(impersonate="chrome120") as client:
-            resp = await client.get(google_url)
+            # Делаем POST запрос (так надежнее для DDG)
+            resp = await client.post(ddg_url, data=data)
 
             if resp.status_code == 200:
                 from bs4 import BeautifulSoup
 
                 soup = BeautifulSoup(resp.text, "html.parser")
 
-                # Google хранит результаты в блоках div с классом "g"
-                search_blocks = soup.select("div.g")
+                # Селекторы DuckDuckGo Lite
+                # Результаты лежат в div с классом "result"
+                search_blocks = soup.select(".result")
 
                 for block in search_blocks:
                     try:
-                        # Ищем заголовок (h3)
-                        title_tag = block.select_one("h3")
-                        # Ищем ссылку (a)
-                        link_tag = block.select_one("a")
-                        # Ищем описание (обычно div с текстом)
-                        desc_tag = block.select_one(
-                            "div[style*='-webkit-line-clamp']"
-                        ) or block.select_one("div[data-sncf]")
+                        # Ищем заголовок и ссылку
+                        link_tag = block.select_one(".result__a")
+                        snippet_tag = block.select_one(".result__snippet")
 
-                        if title_tag and link_tag:
-                            title = title_tag.text
+                        if link_tag:
+                            title = link_tag.text.strip()
                             link = link_tag.get("href")
-                            desc = desc_tag.text if desc_tag else ""
+                            desc = snippet_tag.text.strip() if snippet_tag else "..."
 
-                            # Фильтруем мусор (иногда попадаются ссылки на сам гугл)
-                            if link.startswith("http"):
+                            # Убираем рекламные блоки и ссылки на сам DDG
+                            if link.startswith("http") and "duckduckgo.com" not in link:
                                 results.append(
                                     {"title": title, "link": link, "desc": desc}
                                 )
                     except:
                         continue
+            else:
+                print(f"Ошибка DDG: {resp.status_code}")
 
     except Exception as e:
-        print(f"Ошибка Google поиска: {e}")
+        print(f"Ошибка поиска: {e}")
 
-    return {"results": results}
+    # Ограничиваем выдачу топ-15, чтобы не грузить лишнее
+    return {"results": results[:15]}
