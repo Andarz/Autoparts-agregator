@@ -13,16 +13,12 @@
             "label": "Git Push All",
             "type": "shell",
             "command": "git add . && git commit -m \"${input:commitMessage}\" && git push origin master",
-            
-            // --- ВОТ ЭТО ИСПРАВЛЯЕТ ОШИБКУ ---
             "options": {
                 "shell": {
                     "executable": "cmd.exe",
                     "args": ["/d", "/c"]
                 }
             },
-            // ---------------------------------
-            
             "problemMatcher": [],
             "presentation": {
                 "echo": true,
