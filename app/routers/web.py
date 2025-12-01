@@ -5,8 +5,9 @@ from curl_cffi.requests import AsyncSession
 
 from app.suppliers.mock_supplier import MockSupplier
 from app.suppliers.ic24 import Ic24Supplier
-from app.suppliers.my_shop import MyShop
+from app.services.tecdoc import TecDocService
 
+tecdoc_service = TecDocService()
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
@@ -144,3 +145,15 @@ async def google_search_api(query: str):
 
     # Ограничиваем выдачу топ-15, чтобы не грузить лишнее
     return {"results": results[:15]}
+
+
+@router.get("/api/tecdoc-info")
+async def api_tecdoc_info(part: str):
+    """
+    Фронтенд запрашивает информацию о детали через наш сервер.
+    """
+    if not part:
+        return {"found": False}
+
+    data = await tecdoc_service.get_part_info(part)
+    return data
