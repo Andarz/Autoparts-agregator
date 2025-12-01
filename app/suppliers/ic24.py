@@ -20,40 +20,28 @@ class Ic24Supplier(BaseSupplier):
         encoded_code = encoded_bytes.decode("utf-8")
         search_page_url = self.search_url.format(code=encoded_code)
         
-        # Убрали User-Agent! Пусть библиотека сама его генерирует под chrome110
+        # Заголовки
         headers = {
             "Referer": "https://www.ic24.lv/",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
         }
 
         try:
-            # Используем chrome110 (он часто "зеленый" для Cloudflare на Linux)
             async with AsyncSession(impersonate="chrome110", headers=headers, timeout=30) as client:
-                print(f"[{self.name}] Отправляю запрос (Chrome 110)...", flush=True)
-                
+                # print(f"[{self.name}] Запрос...", flush=True)
                 response = await client.get(search_page_url)
-                
-                print(f"[{self.name}] Ответ: {response.status_code}", flush=True)
                 
                 if response.status_code != 200:
                     print(f"[{self.name}] БЛОКИРОВКА. Статус: {response.status_code}", flush=True)
-                    # Если 403, можно попробовать вывести заглушку
                     return []
 
                 soup = BeautifulSoup(response.text, "html.parser")
                 
-                # Проверка на капчу по заголовку
-                title = soup.title.text.strip() if soup.title else ""
-                if "Just a moment" in title or "Attention Required" in title:
-                    print(f"[{self.name}] Обнаружена CAPTCHA Cloudflare.", flush=True)
-                    return []
-
-                # --- ПАРСИНГ ---
                 cards = soup.select(".row.m-b-0") 
                 if not cards:
                     cards = soup.select(".product-list-item")
                 
-                print(f"[{self.name}] Найдено карточек: {len(cards)}", flush=True)
+                print(f"[{self.name}] Найдено: {len(cards)}", flush=True)
 
                 previous_anchor_id = None 
 
@@ -63,11 +51,11 @@ class Ic24Supplier(BaseSupplier):
                         if not price_tag:
                             continue 
 
-                        # БРЕНД
+                        # 1. БРЕНД
                         brand_tag = card.select_one(".manufacture") or card.select_one(".producer-name")
                         brand = brand_tag.text.strip() if brand_tag else "Unknown"
 
-                        # АРТИКУЛ
+                        # 2. АРТИКУЛ И ОПИСАНИЕ
                         desc_tag = card.select_one(".description")
                         sku = part_number 
                         if desc_tag:
@@ -84,7 +72,7 @@ class Ic24Supplier(BaseSupplier):
                              if sku_tag:
                                  sku = sku_tag.text.strip()
 
-                        # ФОТО
+                        # 3. ФОТО + ЯКОРЬ (на всякий случай)
                         product_image = None
                         current_element_id = None 
                         img_tag = card.select_one(".zoom_img_without") or card.select_one("img[title]") or card.select_one("img[data-param]")
@@ -96,11 +84,14 @@ class Ic24Supplier(BaseSupplier):
                                     product_image = src
                                 else:
                                     product_image = self.base_host + src
+                                
+                                # Fix HTTPs
                                 if product_image:
                                     product_image = product_image.replace("http://", "https://")
+                            
                             current_element_id = img_tag.get("id")
 
-                        # НАЛИЧИЕ
+                        # 4. НАЛИЧИЕ
                         count = 0
                         delivery_days = 1 
                         stock_prefix = ""
@@ -116,16 +107,30 @@ class Ic24Supplier(BaseSupplier):
                             except:
                                 count = 0
 
-                        # ЦЕНА
+                        # 5. ЦЕНА
                         raw_price = price_tag.text.strip()
                         clean_price = raw_price.replace("€", "").replace(" ", "").replace("\xa0", "").replace(",", ".")
                         price = float(clean_price)
 
-                        # ССЫЛКА
+                        # --- 6. ССЫЛКА (DIRECT PRODUCT LINK) ---
+                        # Ищем твой тег <a class="main-link-product-card" ...>
+                        link_tag = card.select_one(".main-link-product-card")
+                        
+                        # Fallback (по умолчанию на поиск с якорем)
                         if previous_anchor_id:
                             final_link = f"{search_page_url}#{previous_anchor_id}"
                         else:
                             final_link = search_page_url
+
+                        # Если нашли прямую ссылку - берем её
+                        if link_tag and link_tag.get("href"):
+                            href = link_tag.get("href")
+                            if href.startswith("http"):
+                                final_link = href
+                            else:
+                                final_link = self.base_host + href
+
+                        # Подготовка якоря для следующей итерации (на случай если прямой ссылки не будет)
                         if current_element_id:
                             previous_anchor_id = current_element_id
 
