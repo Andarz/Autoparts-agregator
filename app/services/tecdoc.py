@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 class TecDocService:
     def __init__(self):
         # ВСТАВЬ СВОЙ КЛЮЧ
-        self.api_key = "4b8df632b2mshf6bf04a01f5afd9p100a80jsn80bc749ef6d6"
+        self.api_key = "1a353f3c58mshf3662c49b4f53d1p1672c6jsn98661b473ce0"
         self.host = "tecdoc-catalog.p.rapidapi.com"
         self.base_url = f"https://{self.host}"
         
